@@ -26,9 +26,10 @@ func check(b string) (ints []int) {
 	for _, value := range str[:len(str)-1] {
 		val, err := strconv.Atoi(value)
 		if err != nil {
-			panic(err)
+			fmt.Errorf("error: %s", err)
+		} else {
+			ints = append(ints, val)
 		}
-		ints = append(ints, val)
 	}
 	return
 }
