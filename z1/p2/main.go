@@ -6,6 +6,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"sync"
 )
 
 var tokens = map[string]int {
@@ -20,44 +21,49 @@ var tokens = map[string]int {
 	"nine":  9,
 }
 
-func getLhs(s string) (string, bool) {
-	var substr string
-	for _, str := range s {
-		substr += string(str)
-		if i, err := strconv.Atoi(string(str)); err == nil {
-			return strconv.Itoa(i), true
+type answer struct {
+	lhs int
+	rhs int
+	ok bool
+}
+
+func liner(line string, ch chan<- int, wg *sync.WaitGroup) {
+	defer wg.Done()
+	nums := parse(line)
+	if nums.ok {
+		ch <- nums.lhs * 10 + nums.rhs
+	}
+}
+
+func parse(line string) answer {
+	var acc string
+	var answer answer
+	for _, char := range line {
+		if num, err := strconv.Atoi(string(char)); err == nil {
+			acc = ""
+			if answer.ok {
+				answer.rhs = num
+			} else {
+				answer.lhs = num
+				answer.rhs = num
+				answer.ok = true
+			}
 		}
+		acc += string(char)
 		for k, v := range tokens {
-			if strings.Contains(substr, k) {
-				return strconv.Itoa(v), true
+			if strings.Contains(acc, k) {
+				acc = ""
+				if answer.ok {
+					answer.rhs = v
+				} else {
+					answer.lhs = v
+					answer.rhs = v
+					answer.ok = true
+				}
 			}
 		}
 	}
-	return strconv.Itoa(-1), false
-}
-
-func reverse(s string) string {
-	runes := []rune(s)
-	for i, j := 0, len(runes) - 1; i < j; i, j = i+1, j-1 {
-		runes[i], runes[j] = runes[j], runes[i]
-	}
-	return string(runes)
-}
-
-func getRhs(s string) (string, bool) {
-	var substr string
-	for _, str := range s {
-		substr += string(str)
-		if i, err := strconv.Atoi(string(str)); err == nil {
-			return strconv.Itoa(i), true
-		}
-		for k, v := range tokens {
-			if strings.Contains(reverse(substr), k) {
-				return strconv.Itoa(v), true
-			}
-		}
-	}
-	return strconv.Itoa(-1), false
+	return answer
 }
 
 func main() {
@@ -67,26 +73,27 @@ func main() {
 	}
 	defer file.Close()
 
+	var wg sync.WaitGroup
+	ch := make(chan int)
+
 	scanner := bufio.NewScanner(file)
-
-	var sum int
 	for scanner.Scan() {
-		str := scanner.Text()
-		lhs, lhs_ok := getLhs(str)
-		rhs, rhs_ok := getRhs(reverse(str))
-
-		if rhs_ok && lhs_ok {
-			fmt.Println(str)
-			num, err := strconv.Atoi(lhs + rhs)
-			if err != nil {
-				panic(err)
-			}
-			sum += num
-		}
+		wg.Add(1)
+		line := scanner.Text()
+		go liner(line, ch, &wg)
 	}
-
 	if err := scanner.Err(); err != nil {
 		panic(err)
+	}
+
+	go func() {
+		wg.Wait()
+		close(ch)
+	}()
+
+	var sum int
+	for ans := range ch {
+		sum += ans
 	}
 	fmt.Println(sum)
 }
