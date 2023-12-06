@@ -40,7 +40,6 @@ func parse(line string) answer {
 	var answer answer
 	for _, char := range line {
 		if num, err := strconv.Atoi(string(char)); err == nil {
-			acc = ""
 			if answer.ok {
 				answer.rhs = num
 			} else {
@@ -51,8 +50,7 @@ func parse(line string) answer {
 		}
 		acc += string(char)
 		for k, v := range tokens {
-			if strings.Contains(acc, k) {
-				acc = ""
+			if strings.HasSuffix(acc, k) {
 				if answer.ok {
 					answer.rhs = v
 				} else {
